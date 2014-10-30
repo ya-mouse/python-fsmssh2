@@ -1,0 +1,2 @@
+https://github.com/ya-mouse/pylibssh2/archive/master.zip#egg=pylibssh2
+https://github.com/ya-mouse/python-fsmsock/archive/master.zip#egg=python-fsmsock
