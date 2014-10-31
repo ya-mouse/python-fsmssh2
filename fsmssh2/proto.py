@@ -36,10 +36,11 @@ class SSHClient(TcpTransport):
         self._timeout = tm + 5.0
         if self._send != None:
             try:
-                return self._send()
+                rc = self._send()
+                return rc > 0
             except Exception:
                 self.disconnect()
-        return 1
+        return True
 
     def process(self):
 #        self._l.debug("PROCESS %s" % self._recv)
@@ -96,13 +97,13 @@ class SSHClient(TcpTransport):
             self._data = b''
             self._send = self._send_cmd
             self._recv = self._recv_cmd
-        return 1
+        return ret == -37
 
     def _send_cmd(self):
         rc = self._process_cmd(True)
-        if rc == -1:
-            return 1
-        return rc
+#        if rc == -1:
+#            return 1
+        return rc == 0
 
     def _recv_cmd(self):
         return not self._process_cmd(False) == 1
@@ -123,6 +124,8 @@ class SSHClient(TcpTransport):
                 self._cmd_idx += 1
                 if self._cmd_idx == len(self._cmds):
                     self._cmd_idx = 0
+                    # We're done
+                    self.stop()
                     return -1
                 return 0
             return -1
