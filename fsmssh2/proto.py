@@ -36,8 +36,7 @@ class SSHClient(TcpTransport):
         self._timeout = tm + 5.0
         if self._send != None:
             try:
-                rc = self._send()
-                return rc > 0
+                return self._send()
             except Exception:
                 self.disconnect()
         return True
@@ -60,8 +59,7 @@ class SSHClient(TcpTransport):
         if ret != -37:
             self._send = self._auth
             self._recv = self._auth
-            return True
-        return ret == -37
+        return True
 
     def _auth(self):
 #        self._l.debug("-- AUTH %s" % self._sess.blockdirections())
@@ -69,8 +67,7 @@ class SSHClient(TcpTransport):
         if ret != -37:
             self._send = self._open_channel
             self._recv = self._open_channel
-            return True
-        return ret == -37
+        return True
 
     def _open_channel(self):
 #        self._l.debug("-- CHAN %s" % self._sess.blockdirections())
@@ -78,8 +75,7 @@ class SSHClient(TcpTransport):
         if self._chan != None:
             self._send = self._open_pty
             self._recv = self._open_pty
-            return True
-        return self._chan == None
+        return True
 
     def _open_pty(self):
 #        self._l.debug("-- PTY %s" % self._sess.blockdirections())
@@ -87,8 +83,7 @@ class SSHClient(TcpTransport):
         if ret != -37:
             self._send = self._execute
             self._recv = self._execute
-            return True
-        return ret == -37
+        return True
 
     def _execute(self):
 #        self._l.debug("-- SEND %s" % self._sess.blockdirections())
@@ -97,13 +92,11 @@ class SSHClient(TcpTransport):
             self._data = b''
             self._send = self._send_cmd
             self._recv = self._recv_cmd
-        return ret == -37
+        return True
 
     def _send_cmd(self):
         rc = self._process_cmd(True)
-#        if rc == -1:
-#            return 1
-        return rc == 0
+        return rc == -2
 
     def _recv_cmd(self):
         return not self._process_cmd(False) == 1
@@ -126,7 +119,7 @@ class SSHClient(TcpTransport):
                     self._cmd_idx = 0
                     # We're done
                     self.stop()
-                    return -1
+                    return -2
                 return 0
             return -1
         if data1[0] == -37:
@@ -140,7 +133,7 @@ if __name__ == '__main__':
     import sys
     from fsmsock import async
     fsm = async.FSMSock()
-    tcp = SSHClient(sys.argv[1], 3.0, 'ADMIN', 'ADMIN', (sys.argv[2],))
+    tcp = SSHClient(sys.argv[1], 5.0, 'ADMIN', 'ADMIN', (sys.argv[2],))
     fsm.connect(tcp)
     while fsm.run():
         fsm.tick()
