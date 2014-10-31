@@ -1,1 +1,1 @@
-from proto import SSHClient
+from .proto import SSHClient
