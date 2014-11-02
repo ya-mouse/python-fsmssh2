@@ -109,7 +109,7 @@ class SSHClient(TcpTransport):
         if data1[0] == 0 or self._chan.eof():
             if loop:
                 tm = time()
-                self._value(self._data, tm)
+                self.on_data(self._data, tm)
                 self._chan.close()
                 self._chan = None
                 self._send = self._open_channel
@@ -126,7 +126,7 @@ class SSHClient(TcpTransport):
             return 1
         return 0
 
-    def _value(self, data, tm):
+    def on_data(self, data, tm):
         print(data)
 
 if __name__ == '__main__':
