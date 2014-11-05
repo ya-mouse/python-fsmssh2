@@ -144,9 +144,6 @@ class SSHClient(TcpTransport):
         return -1
 
     def on_disconnect(self):
-        import traceback
-#        traceback.print_stack()
-        print('SESS CLOSE', self._sess)
         self._sess.close()
         self._sess = None
         super().on_disconnect()
