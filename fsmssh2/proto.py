@@ -144,7 +144,8 @@ class SSHClient(TcpTransport):
         return -1
 
     def on_disconnect(self):
-        self._sess.close()
+        if not self._sess is None:
+            self._sess.close()
         self._sess = None
         super().on_disconnect()
 
