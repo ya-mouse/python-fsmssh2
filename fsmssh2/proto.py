@@ -1,5 +1,5 @@
 import libssh2
-import socket
+import socket, select
 from time import time
 
 from fsmsock.proto import TcpTransport
@@ -20,46 +20,53 @@ class SSHClient(TcpTransport):
                          (socket.AF_INET, socket.SOCK_STREAM, 22))
 
     def connect(self):
-#        self._l.debug("CONNECT %s" % self.fileno())
         if self.connected():
             return True
-        self._send = self._startup
+        self._send = None
         self._recv = self._startup
         rc = super().connect()
+#        self._l.debug("CONNECT %s" % self.fileno())
         return rc
 
     def request(self, tm = None):
         if tm == None:
             tm = time()
 #        self._l.debug("REQ %s" % self._send)
-        self._expire = tm + self._interval
-        self._timeout = tm + 5.0
+        self._expire = tm + 10.0
+        self._timeout = self._expire + 5.0
         if self._send != None:
             try:
                 return self._send()
-            except Exception:
+            except Exception as e:
+#                print('REQEST', e)
                 self.disconnect()
-        return True
+        return 0
 
-    def process(self):
+    def process(self, tm = None):
+        if tm == None:
+            tm = time()
 #        self._l.debug("PROCESS %s" % self._recv)
         self._retries = 0
 
+        self._expire = tm + 10.0
+        self._timeout = self._expire + 5.0
         if self._recv != None:
             try:
                 return self._recv()
-            except Exception:
+            except Exception as e:
+#                print('PROCESS', e)
                 self.disconnect()
 
-        return False
+        return 0
 
     def _startup(self):
-#        self._l.debug("-- STARTUP %s" % self._sess.blockdirections())
         ret = self._sess.startup(self._sock)
+#        self._l.debug("-- STARTUP {0} ({1})".format(self._sess.blockdirections(), ret))
         if ret != -37:
             self._send = self._auth
             self._recv = self._auth
-        return True
+            return select.EPOLLOUT
+        return -1
 
     def _auth(self):
 #        self._l.debug("-- AUTH %s" % self._sess.blockdirections())
@@ -67,7 +74,11 @@ class SSHClient(TcpTransport):
         if ret != -37:
             self._send = self._open_channel
             self._recv = self._open_channel
-        return True
+            return select.EPOLLOUT
+        if self._send is None:
+            return -1
+        self._send = None
+        return select.EPOLLIN
 
     def _open_channel(self):
 #        self._l.debug("-- CHAN %s" % self._sess.blockdirections())
@@ -75,7 +86,11 @@ class SSHClient(TcpTransport):
         if self._chan != None:
             self._send = self._open_pty
             self._recv = self._open_pty
-        return True
+            return select.EPOLLOUT
+        if self._send is None:
+            return -1
+        self._send = None
+        return select.EPOLLIN
 
     def _open_pty(self):
 #        self._l.debug("-- PTY %s" % self._sess.blockdirections())
@@ -83,31 +98,33 @@ class SSHClient(TcpTransport):
         if ret != -37:
             self._send = self._execute
             self._recv = self._execute
-        return True
+            return select.EPOLLOUT
+        if self._send is None:
+            return -1
+        self._send = None
+        return select.EPOLLIN
 
     def _execute(self):
-#        self._l.debug("-- SEND %s" % self._sess.blockdirections())
+#        self._l.debug("-- EXECUTE %s" % self._sess.blockdirections())
         ret = self._chan.execute(self._cmds[self._cmd_idx])
         if ret != -37:
             self._data = b''
-            self._send = self._send_cmd
             self._recv = self._recv_cmd
-        return True
-
-    def _send_cmd(self):
-        rc = self._process_cmd(True)
-        return rc == -2
+        if self._send is None:
+            return -1
+        self._send = None
+        return select.EPOLLIN
 
     def _recv_cmd(self):
-        return not self._process_cmd(False) == 1
+        return self._process_cmd()
 
-    def _process_cmd(self, loop):
+    def _process_cmd(self):
         data1 = self._chan.read_ex()
-#        self._l.debug("-- CMD {0} {1} {2}".format(loop, self._sess.blockdirections(), self._chan.eof()))
+#        self._l.debug("-- CMD {0} {1} {2}".format(data1[0], self._sess.blockdirections(), self._chan.eof()))
         if data1[0] > 0:
             self._data += data1[1]
         if data1[0] == 0 or self._chan.eof():
-            if loop:
+            if self._chan.eof():
                 tm = time()
                 self.on_data(self._data, tm)
                 self._chan.close()
@@ -119,12 +136,16 @@ class SSHClient(TcpTransport):
                     self._cmd_idx = 0
                     # We're done
                     self.stop()
-                    return -2
-                return 0
+                    return 0 # -2
+                return -1
             return -1
         if data1[0] == -37:
-            return 1
-        return 0
+            return -1
+        return -1
+
+    def stop(self):
+        self._sess.close()
+        super().stop()
 
     def on_data(self, data, tm):
         print(data)
