@@ -137,7 +137,7 @@ class SSHClient(TcpTransport):
                     # We're done
                     self.stop()
                     return 0 # -2
-                return -1
+                return select.EPOLLOUT
             return -1
         if data1[0] == -37:
             return -1
