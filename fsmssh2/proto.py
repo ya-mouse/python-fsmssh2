@@ -143,9 +143,6 @@ class SSHClient(TcpTransport):
             return -1
         return -1
 
-    def stop(self):
-        super().stop()
-
     def on_disconnect(self):
         import traceback
 #        traceback.print_stack()
