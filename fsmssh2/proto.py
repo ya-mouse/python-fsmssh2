@@ -1,4 +1,5 @@
 import libssh2
+import logging
 import socket, select
 from time import time
 
@@ -25,13 +26,13 @@ class SSHClient(TcpTransport):
         self._send = None
         self._recv = self._startup
         rc = super().connect()
-#        self._l.debug("CONNECT %s" % self.fileno())
+#        logging.debug("CONNECT %s" % self.fileno())
         return rc
 
     def request(self, tm = None):
         if tm == None:
             tm = time()
-#        self._l.debug("REQ %s" % self._send)
+#        logging.debug("REQ %s" % self._send)
         self._expire = tm + 10.0
         self._timeout = self._expire + 5.0
         if self._send != None:
@@ -45,7 +46,7 @@ class SSHClient(TcpTransport):
     def process(self, tm = None):
         if tm == None:
             tm = time()
-#        self._l.debug("PROCESS %s" % self._recv)
+#        logging.debug("PROCESS %s" % self._recv)
         self._retries = 0
 
         self._expire = tm + 10.0
@@ -61,7 +62,7 @@ class SSHClient(TcpTransport):
 
     def _startup(self):
         ret = self._sess.startup(self._sock)
-#        self._l.debug("-- STARTUP {0} ({1})".format(self._sess.blockdirections(), ret))
+#        logging.debug("-- STARTUP {0} ({1})".format(self._sess.blockdirections(), ret))
         if ret != -37:
             self._send = self._auth
             self._recv = self._auth
@@ -69,7 +70,7 @@ class SSHClient(TcpTransport):
         return -1
 
     def _auth(self):
-#        self._l.debug("-- AUTH %s" % self._sess.blockdirections())
+#        logging.debug("-- AUTH %s" % self._sess.blockdirections())
         ret = self._sess.userauth_password(self._userid, self._passwd)
         if ret != -37:
             self._send = self._open_channel
@@ -81,7 +82,7 @@ class SSHClient(TcpTransport):
         return select.EPOLLIN
 
     def _open_channel(self):
-#        self._l.debug("-- CHAN %s" % self._sess.blockdirections())
+#        logging.debug("-- CHAN %s" % self._sess.blockdirections())
         self._chan = self._sess.open_session()
         if self._chan != None:
             self._send = self._open_pty
@@ -93,7 +94,7 @@ class SSHClient(TcpTransport):
         return select.EPOLLIN
 
     def _open_pty(self):
-#        self._l.debug("-- PTY %s" % self._sess.blockdirections())
+#        logging.debug("-- PTY %s" % self._sess.blockdirections())
         ret = self._chan.pty()
         if ret != -37:
             self._send = self._execute
@@ -105,7 +106,7 @@ class SSHClient(TcpTransport):
         return select.EPOLLIN
 
     def _execute(self):
-#        self._l.debug("-- EXECUTE %s" % self._sess.blockdirections())
+#        logging.debug("-- EXECUTE %s" % self._sess.blockdirections())
         ret = self._chan.execute(self._cmds[self._cmd_idx])
         if ret != -37:
             self._data = b''
@@ -120,7 +121,7 @@ class SSHClient(TcpTransport):
 
     def _process_cmd(self):
         data1 = self._chan.read_ex()
-#        self._l.debug("-- CMD {0} {1} {2}".format(data1[0], self._sess.blockdirections(), self._chan.eof()))
+#        logging.debug("-- CMD {0} {1} {2}".format(data1[0], self._sess.blockdirections(), self._chan.eof()))
         if data1[0] > 0:
             self._data += data1[1]
         if data1[0] == 0 or self._chan.eof():
@@ -144,6 +145,7 @@ class SSHClient(TcpTransport):
         return -1
 
     def on_disconnect(self):
+        print('SSH2')
         if not self._sess is None:
             self._sess.close()
         self._sess = None
