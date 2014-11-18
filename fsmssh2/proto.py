@@ -145,7 +145,6 @@ class SSHClient(TcpTransport):
         return -1
 
     def on_disconnect(self):
-        print('SSH2')
         if not self._sess is None:
             self._sess.close()
         self._sess = None
