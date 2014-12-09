@@ -14,15 +14,15 @@ class SSHClient(TcpTransport):
         self._cmd_idx = 0
         self._cmds = cmds
 
-        self._chan = None
-        self._sess = libssh2.Session()
-        self._sess.setblocking(0)
         super().__init__(host, interval,
                          (socket.AF_INET, socket.SOCK_STREAM, 22))
 
     def connect(self):
         if self.connected():
             return True
+        self._chan = None
+        self._sess = libssh2.Session()
+        self._sess.setblocking(0)
         self._send = None
         self._recv = self._startup
         rc = super().connect()
